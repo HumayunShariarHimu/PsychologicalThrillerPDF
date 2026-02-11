@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Psychological Thriller</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #080808;
+            --toolbar: #121212;
+            --text: #c0c0c0;
+            --white: #ffffff;
+            --accent: #d32f2f; /* থ্রিলার থিমের জন্য লালচে আভা */
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+            height: 100vh; overflow: hidden;
+        }
+
+        /* Toolbar */
+        .header {
+            height: 55px;
+            background: var(--toolbar);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            border-bottom: 1px solid #222;
+            z-index: 100;
+        }
+
+        .title { 
+            font-size: 0.9rem; 
+            letter-spacing: 2px; 
+            color: var(--accent); 
+            text-transform: uppercase; 
+            font-weight: bold;
+        }
+
+        .btn { background: none; border: none; color: #777; font-size: 1.1rem; cursor: pointer; transition: 0.3s; padding: 5px 12px; }
+        .btn:hover { color: var(--white); text-shadow: 0 0 10px #fff; }
+
+        input[type="number"] {
+            width: 45px; background: #1a1a1a; border: 1px solid #333; color: #fff; text-align: center; border-radius: 4px; padding: 2px;
+        }
+
+        /* Reader Area */
+        #viewport {
+            height: calc(100vh - 55px);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: radial-gradient(circle, #151515 0%, #000 100%);
+            padding: 20px 0;
+            scrollbar-width: thin;
+            scrollbar-color: #333 #000;
+        }
+
+        canvas {
+            max-width: 95%;
+            box-shadow: 0 0 60px rgba(0,0,0,0.8);
+            filter: sepia(20%) contrast(1.1) brightness(0.8); /* একটু রহস্যময় লুক */
+            border: 1px solid #222;
+            margin-bottom: 30px;
+        }
+
+        #loader {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 1rem; letter-spacing: 4px; animation: fade 1.5s infinite;
+            color: var(--accent);
+        }
+
+        @keyframes fade { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="loader">LOADING THRILLER...</div>
+
+    <header class="header">
+        <div class="title">PsychologicalThriller</div>
+        
+        <div>
+            <button class="btn" id="prev"><i class="fas fa-chevron-left"></i></button>
+            <input type="number" id="page-num" value="1"> / <span id="page-count">0</span>
+            <button class="btn" id="next"><i class="fas fa-chevron-right"></i></button>
+        </div>
+
+        <div>
+            <button class="btn" id="z-out"><i class="fas fa-search-minus"></i></button>
+            <button class="btn" id="z-in"><i class="fas fa-search-plus"></i></button>
+            <button class="btn" id="fs"><i class="fas fa-expand-alt"></i></button>
+        </div>
+    </header>
+
+    <div id="viewport">
+        <canvas id="pdf-render"></canvas>
+    </div>
+
+    <script>
+        // ১. Worker Setup
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        // ২. আপনার গিটহাবের ফাইলের Raw লিঙ্ক
+        const url = 'https://raw.githubusercontent.com/HumayunShariarHimu/PsychologicalThrillerPDF/main/PsychologicalThriller.pdf';
+
+        let pdfDoc = null,
+            pageNum = 1,
+            pageIsRendering = false,
+            pageNumIsPending = null,
+            scale = 1.2, // ডিফল্ট স্কেল কিছুটা কমানো হয়েছে মোবাইল ফ্রেন্ডলি করার জন্য
+            canvas = document.getElementById('pdf-render'),
+            ctx = canvas.getContext('2d');
+
+        const renderPage = num => {
+            pageIsRendering = true;
+            pdfDoc.getPage(num).then(page => {
+                const viewport = page.getViewport({ scale });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                const renderCtx = { canvasContext: ctx, viewport };
+
+                page.render(renderCtx).promise.then(() => {
+                    pageIsRendering = false;
+                    if (pageNumIsPending !== null) {
+                        renderPage(pageNumIsPending);
+                        pageNumIsPending = null;
+                    }
+                });
+                document.getElementById('page-num').value = num;
+            });
+        };
+
+        const queueRenderPage = num => {
+            if (pageIsRendering) { pageNumIsPending = num; } 
+            else { renderPage(num); }
+        };
+
+        // Navigation
+        document.getElementById('prev').addEventListener('click', () => {
+            if (pageNum <= 1) return;
+            pageNum--;
+            queueRenderPage(pageNum);
+        });
+
+        document.getElementById('next').addEventListener('click', () => {
+            if (pageNum >= pdfDoc.numPages) return;
+            pageNum++;
+            queueRenderPage(pageNum);
+        });
+
+        // সরাসরি পেজ নম্বর ইনপুট দিয়ে জাম্প করা
+        document.getElementById('page-num').addEventListener('change', (e) => {
+            const num = parseInt(e.target.value);
+            if(num > 0 && num <= pdfDoc.numPages) {
+                pageNum = num;
+                queueRenderPage(pageNum);
+            }
+        });
+
+        document.getElementById('z-in').addEventListener('click', () => { scale += 0.2; renderPage(pageNum); });
+        document.getElementById('z-out').addEventListener('click', () => { if(scale > 0.6) scale -= 0.2; renderPage(pageNum); });
+        
+        document.getElementById('fs').addEventListener('click', () => {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else document.exitFullscreen();
+        });
+
+        // Load PDF
+        pdfjsLib.getDocument(url).promise.then(doc => {
+            pdfDoc = doc;
+            document.getElementById('page-count').textContent = doc.numPages;
+            document.getElementById('loader').style.display = 'none';
+            renderPage(pageNum);
+        }).catch(err => {
+            console.error(err);
+            document.getElementById('loader').innerHTML = "FAILED TO LOAD PDF.<br>Check GitHub Pages Settings.";
+            document.getElementById('loader').style.animation = "none";
+            document.getElementById('loader').style.color = "red";
+        });
+    </script>
+</body>
+</html>
