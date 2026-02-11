@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Psychological Thriller</title>
+    <title>Psychological Thriller | Reader</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -14,7 +14,7 @@
             --toolbar: #121212;
             --text: #c0c0c0;
             --white: #ffffff;
-            --accent: #d32f2f; /* থ্রিলার থিমের জন্য লালচে আভা */
+            --accent: #d32f2f; 
         }
 
         body, html {
@@ -23,63 +23,89 @@
             color: var(--text);
             font-family: 'Courier New', Courier, monospace;
             height: 100vh; overflow: hidden;
+            touch-action: manipulation; /* জুম করার সময় বাটন ক্লিক সহজ করে */
         }
 
         /* Toolbar */
         .header {
-            height: 55px;
+            height: auto;
+            min-height: 55px;
             background: var(--toolbar);
             display: flex;
+            flex-wrap: wrap; /* মোবাইলে আইটেমগুলো নিচে নামতে পারবে */
             justify-content: space-between;
             align-items: center;
-            padding: 0 20px;
+            padding: 5px 15px;
             border-bottom: 1px solid #222;
             z-index: 100;
         }
 
         .title { 
-            font-size: 0.9rem; 
-            letter-spacing: 2px; 
+            font-size: 0.8rem; 
+            letter-spacing: 1px; 
             color: var(--accent); 
             text-transform: uppercase; 
             font-weight: bold;
         }
 
-        .btn { background: none; border: none; color: #777; font-size: 1.1rem; cursor: pointer; transition: 0.3s; padding: 5px 12px; }
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn { 
+            background: none; 
+            border: none; 
+            color: #777; 
+            font-size: 1rem; 
+            cursor: pointer; 
+            transition: 0.3s; 
+            padding: 8px; 
+        }
         .btn:hover { color: var(--white); text-shadow: 0 0 10px #fff; }
 
         input[type="number"] {
-            width: 45px; background: #1a1a1a; border: 1px solid #333; color: #fff; text-align: center; border-radius: 4px; padding: 2px;
+            width: 35px; background: #1a1a1a; border: 1px solid #333; color: #fff; text-align: center; border-radius: 4px; padding: 4px; font-size: 0.9rem;
         }
 
         /* Reader Area */
         #viewport {
-            height: calc(100vh - 55px);
-            overflow-y: auto;
+            height: calc(100vh - 60px);
+            overflow: auto;
             display: flex;
             flex-direction: column;
             align-items: center;
             background: radial-gradient(circle, #151515 0%, #000 100%);
-            padding: 20px 0;
+            padding: 10px 0;
             scrollbar-width: thin;
             scrollbar-color: #333 #000;
         }
 
         canvas {
-            max-width: 95%;
-            box-shadow: 0 0 60px rgba(0,0,0,0.8);
-            filter: sepia(20%) contrast(1.1) brightness(0.8); /* একটু রহস্যময় লুক */
+            max-width: 98%; /* মোবাইলে উইডথ ফুল থাকবে */
+            height: auto !important; /* রেশিও ঠিক রাখবে */
+            box-shadow: 0 0 40px rgba(0,0,0,0.9);
+            filter: sepia(15%) contrast(1.1) brightness(0.8);
             border: 1px solid #222;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         #loader {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 1rem; letter-spacing: 4px; animation: fade 1.5s infinite;
+            font-size: 0.9rem; letter-spacing: 3px; animation: fade 1.5s infinite;
             color: var(--accent);
+            text-align: center;
         }
 
         @keyframes fade { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+        /* Mobile Specific Adjustments */
+        @media (max-width: 480px) {
+            .title { display: none; } /* মোবাইলে টাইটেল লুকিয়ে ফেললাম জায়গা বাঁচাতে */
+            .header { justify-content: center; gap: 10px; }
+            .btn { padding: 10px; font-size: 1.2rem; } /* টাচ করার সুবিধার জন্য বড় বাটন */
+        }
     </style>
 </head>
 <body>
@@ -87,15 +113,15 @@
     <div id="loader">LOADING THRILLER...</div>
 
     <header class="header">
-        <div class="title">PsychologicalThriller</div>
+        <div class="title">Psychological Thriller</div>
         
-        <div>
+        <div class="controls">
             <button class="btn" id="prev"><i class="fas fa-chevron-left"></i></button>
-            <input type="number" id="page-num" value="1"> / <span id="page-count">0</span>
+            <input type="number" id="page-num" value="1"> <span style="font-size: 0.8rem;">/ <span id="page-count">0</span></span>
             <button class="btn" id="next"><i class="fas fa-chevron-right"></i></button>
         </div>
 
-        <div>
+        <div class="controls">
             <button class="btn" id="z-out"><i class="fas fa-search-minus"></i></button>
             <button class="btn" id="z-in"><i class="fas fa-search-plus"></i></button>
             <button class="btn" id="fs"><i class="fas fa-expand-alt"></i></button>
@@ -107,28 +133,48 @@
     </div>
 
     <script>
-        // ১. Worker Setup
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        // ২. আপনার গিটহাবের ফাইলের Raw লিঙ্ক
         const url = 'https://raw.githubusercontent.com/HumayunShariarHimu/PsychologicalThrillerPDF/main/PsychologicalThriller.pdf';
 
         let pdfDoc = null,
             pageNum = 1,
             pageIsRendering = false,
             pageNumIsPending = null,
-            scale = 1.2, // ডিফল্ট স্কেল কিছুটা কমানো হয়েছে মোবাইল ফ্রেন্ডলি করার জন্য
+            scale = 1.0, 
             canvas = document.getElementById('pdf-render'),
             ctx = canvas.getContext('2d');
+
+        // মোবাইল স্ক্রিন অনুযায়ী স্কেল সেট করার ফাংশন
+        const adjustScale = () => {
+            if (window.innerWidth < 480) {
+                scale = 0.7; // ছোট ফোনের জন্য
+            } else if (window.innerWidth < 1024) {
+                scale = 1.0; // ট্যাবলেট
+            } else {
+                scale = 1.3; // ডেস্কটপ
+            }
+        };
 
         const renderPage = num => {
             pageIsRendering = true;
             pdfDoc.getPage(num).then(page => {
                 const viewport = page.getViewport({ scale });
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
+                
+                // মোবাইল রেসপন্সিভনেস নিশ্চিত করতে ডিভাইস পিক্সেল রেশিও ব্যবহার
+                const outputScale = window.devicePixelRatio || 1;
+                canvas.width = Math.floor(viewport.width * outputScale);
+                canvas.height = Math.floor(viewport.height * outputScale);
+                canvas.style.width = Math.floor(viewport.width) + "px";
+                canvas.style.height = Math.floor(viewport.height) + "px";
 
-                const renderCtx = { canvasContext: ctx, viewport };
+                const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+
+                const renderCtx = { 
+                    canvasContext: ctx, 
+                    viewport: viewport,
+                    transform: transform
+                };
 
                 page.render(renderCtx).promise.then(() => {
                     pageIsRendering = false;
@@ -146,7 +192,6 @@
             else { renderPage(num); }
         };
 
-        // Navigation
         document.getElementById('prev').addEventListener('click', () => {
             if (pageNum <= 1) return;
             pageNum--;
@@ -159,7 +204,6 @@
             queueRenderPage(pageNum);
         });
 
-        // সরাসরি পেজ নম্বর ইনপুট দিয়ে জাম্প করা
         document.getElementById('page-num').addEventListener('change', (e) => {
             const num = parseInt(e.target.value);
             if(num > 0 && num <= pdfDoc.numPages) {
@@ -169,14 +213,21 @@
         });
 
         document.getElementById('z-in').addEventListener('click', () => { scale += 0.2; renderPage(pageNum); });
-        document.getElementById('z-out').addEventListener('click', () => { if(scale > 0.6) scale -= 0.2; renderPage(pageNum); });
+        document.getElementById('z-out').addEventListener('click', () => { if(scale > 0.4) scale -= 0.2; renderPage(pageNum); });
         
         document.getElementById('fs').addEventListener('click', () => {
-            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-            else document.exitFullscreen();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(e => {
+                    alert(`Error attempting to enable full-screen mode: ${e.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
         });
 
-        // Load PDF
+        // ইনিশিয়াল লোড
+        adjustScale();
+
         pdfjsLib.getDocument(url).promise.then(doc => {
             pdfDoc = doc;
             document.getElementById('page-count').textContent = doc.numPages;
@@ -184,9 +235,17 @@
             renderPage(pageNum);
         }).catch(err => {
             console.error(err);
-            document.getElementById('loader').innerHTML = "FAILED TO LOAD PDF.<br>Check GitHub Pages Settings.";
+            document.getElementById('loader').innerHTML = "FAILED TO LOAD PDF.<br>Check Connection.";
             document.getElementById('loader').style.animation = "none";
             document.getElementById('loader').style.color = "red";
+        });
+
+        // উইন্ডো রিসাইজ করলে রেন্ডার অ্যাডজাস্ট হবে
+        window.addEventListener('resize', () => {
+            if (pdfDoc) {
+                // আমরা অটো স্কেল পরিবর্তন করতে পারি কিন্তু ইউজার জুম নষ্ট হতে পারে 
+                // তাই রিসাইজে শুধু ক্যানভাস রি-রেন্ডার করা ভালো
+            }
         });
     </script>
 </body>
